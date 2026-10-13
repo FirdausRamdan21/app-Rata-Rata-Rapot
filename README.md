@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nilai Rapor
 
-## Getting Started
+> Catat nilai dengan rapi. Pahami perkembanganmu. Susun langkah menuju kampus tujuan.
 
-First, run the development server:
+Nilai Rapor adalah aplikasi web personal untuk mengelola mata pelajaran dan nilai rapor SMA/SMK selama enam semester. Data disimpan di SQLite lokal, sementara ringkasan nilai dihitung otomatis dari nilai yang sudah diisi.
+
+## Alur aplikasi
+
+| Halaman | Kegunaan |
+| --- | --- |
+| **Dashboard** | Melihat jumlah mapel, nilai terisi, rata-rata keseluruhan, dan langkah berikutnya. |
+| **Mata Pelajaran** | Menambah, mengubah, dan menghapus mapel beserta kategorinya. |
+| **Input Nilai** | Memilih semester 1–6 dan menyimpan nilai setiap mapel. |
+| **Analisis** | Membandingkan rata-rata per mapel, per semester, dan keseluruhan. |
+
+Kategori mapel yang tersedia: wajib, peminatan, dan muatan lokal. Nilai yang diperbolehkan berada pada rentang 0–100.
+
+## Aturan perhitungan
+
+- Nilai kosong tidak dihitung sebagai 0. Nilai `0` tetap dihitung jika memang tercantum di rapor.
+- Rata-rata per mapel memakai nilai mapel tersebut yang sudah diisi.
+- Rata-rata per semester memakai nilai terisi pada semester tersebut.
+- Rata-rata keseluruhan menggabungkan semua nilai terisi, bukan merata-ratakan rata-rata semester.
+- Nilai disimpan dengan presisi penuh. Pembulatan dua desimal hanya digunakan saat ditampilkan.
+
+## Menjalankan secara lokal
+
+**Prasyarat:** Node.js 22 atau lebih baru dan npm.
 
 ```bash
+npm install
+npm run db:migrate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka [http://localhost:3000](http://localhost:3000). Aplikasi berjalan sebagai layanan lokal; tutup tab kapan saja, lalu jalankan kembali `npm run dev` untuk melanjutkan.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Database
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+File SQLite berada di `data/grades.db`. File ini tidak dilacak Git agar data rapor pribadi tidak ikut tersimpan bersama kode.
 
-## Learn More
+Jika skema database berubah, buat migrasi baru lalu terapkan:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run db:generate
+npm run db:migrate
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Pemeriksaan
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm test
+npm run lint
+npm run typecheck
+npm run build
+```
 
-## Deploy on Vercel
+Unit test perhitungan berada di `src/lib/grade-calculations.test.ts`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Teknologi
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js App Router · React · TypeScript · Tailwind CSS · SQLite · Drizzle ORM · Vitest
+
+## Struktur proyek
+
+```text
+src/
+  app/
+    analysis/       Ringkasan nilai
+    grades/         Input nilai semester
+    subjects/       Pengelolaan mata pelajaran
+    actions.ts      Server Actions untuk perubahan data
+    app-nav.tsx     Navigasi utama
+    page.tsx        Dashboard
+  db/
+    index.ts        Koneksi SQLite
+    schema.ts       Skema Drizzle
+  lib/
+    grade-calculations.ts       Fungsi perhitungan
+    grade-calculations.test.ts  Unit test
+drizzle/            Riwayat migrasi database
+data/               Database SQLite lokal, diabaikan Git
+```
+
+## Privasi dan batas penggunaan
+
+Aplikasi ini dirancang untuk satu pengguna pada satu instalasi lokal. Belum ada akun, sinkronisasi cloud, atau pemisahan data antar pengguna. Jangan membuka instalasi ini sebagai layanan publik bersama sebelum autentikasi dan perlindungan data multi-pengguna ditambahkan.
+
+Simpan salinan cadangan `data/grades.db` di lokasi privat. Jangan mengunggah database berisi nilai pribadi ke repository publik.
