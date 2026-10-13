@@ -1,69 +1,128 @@
-import Image from "next/image";
+import { io } from "next/cache";
+import Link from "next/link";
+import { db } from "@/db";
+import { grades, subjects } from "@/db/schema";
+import {
+  calculateGradeAverages,
+  roundAverageForDisplay,
+  type Semester,
+} from "@/lib/grade-calculations";
+
+export const instant = false;
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="page-content dashboard-page">
+      <section className="dashboard-intro" aria-labelledby="dashboard-title">
+        <div>
+          <p className="eyebrow">RUANG BELAJAR PRIBADI</p>
+          <h1 id="dashboard-title">Rapormu, lebih terarah.</h1>
+          <p className="intro-copy">
+            Catat nilai per semester, lihat perkembangan, dan susun target kuliahmu.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <span className="dashboard-period">SEMESTER 1 — 6</span>
+      </section>
+
+        <DashboardOverview />
+
+      <section className="workflow-section" aria-labelledby="workflow-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">MULAI DI SINI</p>
+            <h2 id="workflow-title">Tiga langkah merapikan rapor</h2>
+          </div>
         </div>
-      </main>
-    </div>
+        <ol className="workflow-list">
+          <li>
+            <span className="workflow-number">01</span>
+            <div>
+              <h3>Atur mata pelajaran</h3>
+              <p>Tambahkan mapel dan pilih kategorinya sesuai rapor sekolah.</p>
+            </div>
+            <Link className="text-link" href="/subjects">Kelola mapel <span aria-hidden="true">→</span></Link>
+          </li>
+          <li>
+            <span className="workflow-number">02</span>
+            <div>
+              <h3>Masukkan nilai semester</h3>
+              <p>Isi nilai 0–100 untuk mapel yang muncul pada semester tersebut.</p>
+            </div>
+            <Link className="text-link" href="/grades">Buka input nilai <span aria-hidden="true">→</span></Link>
+          </li>
+          <li>
+            <span className="workflow-number">03</span>
+            <div>
+              <h3>Pahami ringkasannya</h3>
+              <p>Bandingkan rata-rata mapel dan semester dari nilai yang tercatat.</p>
+            </div>
+            <Link className="text-link" href="/analysis">Lihat analisis <span aria-hidden="true">→</span></Link>
+          </li>
+        </ol>
+      </section>
+
+      <aside className="tip-strip">
+        <span className="tip-icon" aria-hidden="true">i</span>
+        <p>
+          Nilai yang belum diisi tidak dianggap 0. Hanya nilai yang tercatat yang
+          masuk ke perhitungan rata-rata.
+        </p>
+      </aside>
+    </main>
+  );
+}
+
+async function DashboardOverview() {
+  await io();
+  const [subjectRows, gradeRows] = await Promise.all([
+    Promise.resolve(db.select({ id: subjects.id }).from(subjects).all()),
+    Promise.resolve(
+      db
+        .select({
+          subjectId: grades.subjectId,
+          semester: grades.semester,
+          score: grades.score,
+        })
+        .from(grades)
+        .all(),
+    ),
+  ]);
+  const averages = calculateGradeAverages(
+    gradeRows.map((grade) => ({ ...grade, semester: grade.semester as Semester })),
+  );
+  const average = roundAverageForDisplay(averages.overall.average);
+  const nextHref = subjectRows.length === 0 ? "/subjects" : "/grades";
+  const nextLabel = subjectRows.length === 0 ? "Mulai atur mata pelajaran" : "Lanjut ke input nilai";
+
+  return (
+    <>
+      <section className="dashboard-metrics" aria-label="Ringkasan rapor">
+        <div className="metric-item">
+          <span className="metric-label">Mata pelajaran</span>
+          <strong>{subjectRows.length}</strong>
+          <span className="metric-note">terdaftar</span>
+        </div>
+        <div className="metric-item">
+          <span className="metric-label">Nilai tercatat</span>
+          <strong>{averages.overall.count}</strong>
+          <span className="metric-note">nilai terisi</span>
+        </div>
+        <div className="metric-item metric-average">
+          <span className="metric-label">Rata-rata keseluruhan</span>
+          <strong>
+            {average === null
+              ? "—"
+              : average.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </strong>
+          <span className="metric-note">
+            {average === null ? "belum ada nilai" : "dari nilai yang tercatat"}
+          </span>
+        </div>
+        <Link className="metric-next" href={nextHref}>
+          <span className="metric-next-label">LANGKAH BERIKUTNYA</span>
+          <span>{nextLabel} <span aria-hidden="true">→</span></span>
+        </Link>
+      </section>
+    </>
   );
 }
